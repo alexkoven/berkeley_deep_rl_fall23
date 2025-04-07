@@ -17,7 +17,7 @@ def sample_trajectory(env, policy, max_path_length, render=False):
     """Sample a rollout in the environment from a policy."""
     
     # initialize env for the beginning of a new rollout
-    ob =  env.reset()
+    ob, _ = env.reset()  # Unpack the observation from the reset tuple
 
     # init vars
     obs, acs, rewards, next_obs, terminals, image_obs = [], [], [], [], [], []
@@ -36,10 +36,11 @@ def sample_trajectory(env, policy, max_path_length, render=False):
         ac = policy(ptu.from_numpy(ob)).detach().cpu().numpy()  # Convert observation to tensor, get action from policy
 
         # take that action and get reward and next ob
-        next_ob, rew, done, _ = env.step(ac)  # Standard gym environment step
+        next_ob, rew, terminated, truncated, _ = env.step(ac)  # Standard gym environment step
         
         # rollout can end due to done, or due to max_path_length
         steps += 1
+        done = terminated or truncated
         rollout_done = 1 if done or steps >= max_path_length else 0  # End if environment is done or max steps reached
         
         # record result of taking that action
