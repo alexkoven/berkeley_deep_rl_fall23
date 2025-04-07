@@ -116,6 +116,17 @@ def run_training_loop(params):
     total_envsteps = 0
     start_time = time.time()
 
+    # Record initial policy performance
+    print('\nRecording initial policy performance...')
+    untrained_video_paths = utils.sample_n_trajectories(
+        env, actor, MAX_NVIDEO, MAX_VIDEO_LEN, True)
+    if untrained_video_paths is not None:
+        logger.log_paths_as_videos(
+            untrained_video_paths, -1,  # Use -1 to indicate pre-training
+            fps=fps,
+            max_videos_to_save=MAX_NVIDEO,
+            video_title='untrained_rollouts')
+
     for itr in range(params['n_iter']):
         print("\n\n********** Iteration %i ************"%itr)
 

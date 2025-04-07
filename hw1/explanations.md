@@ -93,14 +93,14 @@ The process:
 This is a standard supervised learning setup, treating the expert's actions as the ground truth labels to be imitated.
 
 
-## More Info on the Replay Buffer
+## 4. How exactly does the replay buffer work?
 
-## Basic Structure and Purpose
+### Basic Structure and Purpose
 The replay buffer is a crucial component in many reinforcement learning algorithms, particularly in off-policy methods. It maintains two types of storage:
 - Raw rollouts (`self.paths`): Stores complete trajectory data
 - Processed arrays: Stores concatenated components of the experiences (`obs`, `acs`, `rews`, `next_obs`, `terminals`)
 
-## Key Components
+### Key Components
 ```python
 def __init__(self, max_size=1000000):
     self.max_size = max_size  # Maximum number of transitions to store
@@ -113,9 +113,9 @@ def __init__(self, max_size=1000000):
     self.terminals = None  # Terminal flags
 ```
 
-## Storage Methods
+### Storage Methods
 
-### Complete Trajectories vs Chunked Storage
+#### Complete Trajectories vs Chunked Storage
 The buffer uses a dual storage system:
 1. **Complete Trajectories** (`self.paths`):
    - Used for visualization/debugging (creating videos)
@@ -127,7 +127,7 @@ The buffer uses a dual storage system:
    - Allows easy batch creation
    - Better memory management through `max_size` parameter
 
-### Usage of Complete Trajectories
+#### Usage of Complete Trajectories
 Complete trajectories are primarily used for:
 1. **Video Logging/Visualization**
    - Creating videos of agent behavior for TensorBoard
@@ -137,15 +137,15 @@ Complete trajectories are primarily used for:
    - Loading expert demonstrations
    - Relabeling trajectories with expert actions in DAgger
 
-## Data Processing (convert_listofrollouts function)
+### Data Processing (convert_listofrollouts function)
 
 The `convert_listofrollouts` function transforms trajectory data into flat arrays:
 
-### Parameters
+#### Parameters
 1. `paths`: List of dictionaries (each dictionary is a trajectory)
 2. `concat_rew`: Boolean flag for reward processing
 
-### Path Dictionary Structure
+#### Path Dictionary Structure
 Each path contains:
 - `"observation"`: States/observations
 - `"action"`: Actions taken
@@ -153,7 +153,7 @@ Each path contains:
 - `"next_observation"`: Next states
 - `"terminal"`: Terminal flags
 
-### Processing Steps
+#### Processing Steps
 1. **Observations**: Concatenates all observation arrays
 2. **Actions**: Concatenates all action arrays
 3. **Rewards**: 
@@ -162,7 +162,7 @@ Each path contains:
 4. **Next Observations**: Concatenates all next state arrays
 5. **Terminals**: Concatenates all terminal flags
 
-### Example
+#### Example
 ```python
 # Input paths:
 paths = [
@@ -191,3 +191,103 @@ terminals = np.array([0, 1, 1])
 ```
 
 The function converts trajectory-based data into a flat format for easier random sampling during training, particularly useful for off-policy algorithms that sample individual transitions rather than complete trajectories.
+
+## 5. Are all trajectories relabeled by DAGGER?
+
+1. **Initial Training Phase**:
+- DAGGER starts with pure Behavior Cloning (BC) in the first iteration (itr=0)
+- It uses expert demonstrations loaded from a pickle file:
+```python
+if itr == 0:
+    # BC training from expert data.
+    paths = pickle.load(open(params['expert_data'], 'rb'))
+    envsteps_this_batch = 0
+```
+
+2. **Data Collection Phase** (itr > 0):
+- For each subsequent iteration, DAGGER:
+  1. Collects new trajectories using the current policy
+  2. Uses `utils.sample_trajectories()` to gather `batch_size` transitions
+  3. Each trajectory contains:
+     - observations
+     - actions (from current policy)
+     - rewards
+     - next observations
+     - terminal flags
+
+3. **Relabeling Process**:
+```python
+if params['do_dagger']:
+    print("\nRelabelling collected observations with labels from an expert policy...")
+    for path in paths:
+        expert_actions = expert_policy.get_action(path["observation"])
+        path["action"] = expert_actions
+```
+
+The key aspects of the relabeling process are:
+
+a) **What gets relabeled**:
+- Only the actions are relabeled
+- The states/observations remain unchanged
+- The original trajectories' structure is preserved
+
+b) **How relabeling works**:
+1. Takes the observations from the collected trajectories (using student policy)
+2. Feeds each observation through the expert policy
+3. Replaces the student's actions with the expert's actions
+4. Maintains the original state-next_state relationships
+
+4. **Data Aggregation**:
+```python
+total_envsteps += envsteps_this_batch
+replay_buffer.add_rollouts(paths)
+```
+- The relabeled trajectories are added to a replay buffer
+- This aggregates data across iterations, combining:
+  - Original expert demonstrations
+  - New trajectories with expert-relabeled actions
+
+5. **Training Update**:
+```python
+print('\nTraining agent using sampled data from replay buffer...')
+```
+- The policy is then trained on the aggregated dataset
+- This includes both:
+  - Original expert demonstrations
+  - Newly collected states with expert-relabeled actions
+
+The key insight is that DAGGER:
+1. Collects states/trajectories using the student's current policy
+2. Relabels only the actions using the expert policy
+3. Aggregates this data with previous iterations
+4. Trains on the growing dataset
+
+This approach helps address the covariate shift problem in Behavior Cloning by:
+- Collecting states that the student policy actually visits
+- Getting expert feedback on those states
+- Building a dataset that covers the state distribution the student encounters
+- Maintaining the expert's optimal actions for those states
+
+This creates a more robust policy that learns how to recover from its own mistakes, as it sees expert actions for states it encounters, rather than just states the expert encounters.
+
+
+Yes, all trajectories collected after iteration 0 (the initial BC training) are relabeled. Here's the detailed breakdown:
+
+1. **Iteration 0 (BC Phase)**:
+   - Uses pure expert demonstrations
+   - No relabeling occurs
+   - Data comes directly from expert_data file
+
+2. **All Subsequent Iterations (DAGGER Phase)**:
+   - Every single trajectory collected by the student policy is relabeled
+   - The relabeling loop iterates through all paths: `for path in paths`
+   - For each path, all observations are passed through the expert policy to get new actions
+   - The original actions are completely replaced with expert actions: `path["action"] = expert_actions`
+
+This is actually a key feature of DAGGER's design:
+- It wants to learn the expert's policy for ALL states visited by the student
+- There's no selective relabeling or partial relabeling
+- The goal is to get expert feedback on every single state encountered by the student policy
+- This comprehensive relabeling helps create a robust policy that can recover from mistakes
+
+This is different from some other imitation learning algorithms that might selectively relabel or only relabel certain states/trajectories. DAGGER takes the approach of getting expert feedback on everything the student encounters to build a comprehensive training dataset.
