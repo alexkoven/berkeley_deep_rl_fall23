@@ -29,12 +29,11 @@ def sample_trajectory(env, policy, max_path_length, render=False):
             if hasattr(env, 'sim'):
                 img = env.sim.render(camera_name='track', height=500, width=500)[::-1]
             else:
-                img = env.render(mode='single_rgb_array')
+                img = env.render()
             image_obs.append(cv2.resize(img, dsize=(250, 250), interpolation=cv2.INTER_CUBIC))
     
         # use the most recent ob to decide what to do
         ac = policy(ptu.from_numpy(ob)).detach().cpu().numpy()  # Convert observation to tensor, get action from policy
-        ac = ac[0]  # Extract first element since policy outputs batched actions
 
         # take that action and get reward and next ob
         next_ob, rew, done, _ = env.step(ac)  # Standard gym environment step

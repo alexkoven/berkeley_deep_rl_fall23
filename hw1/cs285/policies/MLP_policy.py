@@ -127,16 +127,17 @@ class MLPPolicySL(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         # Get mean from network
         action_mean = self.mean_net(observation)
         
-        # Create normal distribution with learned std
-        action_distribution = distributions.Normal(
-            action_mean,
-            torch.exp(self.logstd)
-        )
-        
-        # Sample action
-        action = action_distribution.rsample()
-        
-        return action
+        if self.training:
+            # During training, sample from distribution
+            action_distribution = distributions.Normal(
+                action_mean,
+                torch.exp(self.logstd)
+            )
+            action = action_distribution.rsample()
+            return action
+        else:
+            # During inference, just return the mean
+            return action_mean
 
     def update(self, observations, actions):
         """
