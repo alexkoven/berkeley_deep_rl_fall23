@@ -87,7 +87,6 @@ def run_training_loop(params):
     ## AGENT
     #############
 
-    # TODO: Implement missing functions in this class.
     actor = MLPPolicySL(
         ac_dim,
         ob_dim,
@@ -143,9 +142,9 @@ def run_training_loop(params):
         else:
             # DAGGER training from sampled data relabeled by expert
             assert params['do_dagger']
-            # TODO: collect `params['batch_size']` transitions
+            # collect `params['batch_size']` transitions
             # HINT: use utils.sample_trajectories
-            # TODO: implement missing parts of utils.sample_trajectory
+            # implement missing parts of utils.sample_trajectory 🏁
             paths, envsteps_this_batch = utils.sample_trajectories(
                 env, actor, params['batch_size'], params['ep_len'])
 
@@ -153,9 +152,9 @@ def run_training_loop(params):
             if params['do_dagger']:
                 print("\nRelabelling collected observations with labels from an expert policy...")
 
-                # TODO: relabel collected obsevations (from our policy) with labels from expert policy
+                # relabel collected obsevations (from our policy) with labels from expert policy
                 # HINT: query the policy (using the get_action function) with paths[i]["observation"]
-                # and replace paths[i]["action"] with these expert labels
+                # and replace paths[i]["action"] with these expert labels 🏁
                 for path in paths:
                     expert_actions = expert_policy.get_action(path["observation"])
                     path["action"] = expert_actions
@@ -173,7 +172,7 @@ def run_training_loop(params):
           # HINT1: how much data = params['train_batch_size']
           # HINT2: use np.random.permutation to sample random indices
           # HINT3: return corresponding data points from each array (i.e., not different indices from each array)
-          # for imitation learning, we only need observations and actions.  
+          # for imitation learning, we only need observations and actions.  🏁
           batch_size = params['train_batch_size']
           rand_indices = np.random.permutation(replay_buffer.obs.shape[0])[:batch_size]
           ob_batch = replay_buffer.obs[rand_indices]
@@ -245,7 +244,7 @@ def main():
     parser.add_argument('--train_batch_size', type=int,
                         default=100)  # number of sampled data points to be used per gradient/train step
 
-    parser.add_argument('--n_layers', type=int, default=2)  # depth, of policy to be learned
+    parser.add_argument('--n_layers', type=int, default=4)  # depth, of policy to be learned
     parser.add_argument('--size', type=int, default=64)  # width of each layer, of policy to be learned
     parser.add_argument('--learning_rate', '-lr', type=float, default=5e-3)  # LR for supervised learning
 

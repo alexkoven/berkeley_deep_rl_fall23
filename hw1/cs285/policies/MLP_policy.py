@@ -124,11 +124,12 @@ class MLPPolicySL(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         :return:
             action: sampled action(s) from the policy
         """
+        # 🏁
         # Get mean from network
         action_mean = self.mean_net(observation)
         
         if self.training:
-            # During training, sample from distribution
+            # During training, sample from distribution 🏁
             action_distribution = distributions.Normal(
                 action_mean,
                 torch.exp(self.logstd)
@@ -136,24 +137,24 @@ class MLPPolicySL(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             action = action_distribution.rsample()
             return action
         else:
-            # During inference, just return the mean
+            # During inference, just return the mean 🏁
             return action_mean
 
     def update(self, observations, actions):
         """
         Updates/trains the policy using MSE loss between predicted and expert actions
         """
-        # Convert observations/actions to tensors
+        # Convert observations/actions to tensors 🏁
         observations = ptu.from_numpy(observations)
         actions = ptu.from_numpy(actions)
         
-        # Get mean actions from policy network
+        # Get mean actions from policy network 🏁
         predicted_actions = self.mean_net(observations)
         
-        # Calculate MSE loss
+        # Calculate MSE loss 🏁
         loss = F.mse_loss(predicted_actions, actions)
         
-        # Gradient descent
+        # Gradient descent 🏁
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
