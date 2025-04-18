@@ -33,7 +33,8 @@ def sample_trajectory(env, policy, max_path_length, render=False):
             image_obs.append(cv2.resize(img, dsize=(250, 250), interpolation=cv2.INTER_CUBIC))
 
         # use the most recent ob to decide what to do 🏁
-        ac = policy(ptu.from_numpy(ob)).detach().cpu().numpy()  # Convert observation to tensor, get action from policy
+        ac, _ = policy(ptu.from_numpy(ob))  # Convert observation to tensor, get action from policy
+        ac = ac.detach().cpu().numpy()
 
         # take that action and get reward and next ob 🏁
         next_ob, rew, terminated, truncated, _ = env.step(ac)  # Standard gym environment step

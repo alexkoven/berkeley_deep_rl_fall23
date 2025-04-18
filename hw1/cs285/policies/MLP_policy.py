@@ -123,42 +123,53 @@ class MLPPolicySL(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         :param observation: observation(s) to query the policy
         :return:
             action: sampled action(s) from the policy
+            distribution: distribution object for computing log probabilities
         """
-        # 🏁
-        # Get mean from network
-        action_mean = self.mean_net(observation)
+        # Get mean from neural network
+        mean = self.mean_net(observation)  # shape: [batch_size, ac_dim]
         
+        # Get standard deviation from logstd parameter
+        std = torch.exp(self.logstd)  # shape: [ac_dim]
+        
+        # Create normal distribution
+        distribution = torch.distributions.Normal(mean, std)
+        
+        # Sample actions (using reparameterization trick automatically)
         if self.training:
-            # During training, sample from distribution 🏁
-            action_distribution = distributions.Normal(
-                action_mean,
-                torch.exp(self.logstd)
-            )
-            action = action_distribution.rsample()
-            return action
+            action = distribution.rsample()  # Reparameterized sampling for training
         else:
-            # During inference, just return the mean 🏁
-            return action_mean
+            action = mean  # During inference, just use the mean action
+        
+        return action, distribution
 
     def update(self, observations, actions):
         """
-        Updates/trains the policy using MSE loss between predicted and expert actions
+        Updates/trains the policy using supervised learning
+        
+        :param observations: observation(s) to query the policy
+        :param actions: actions we want the policy to imitate
+        :return:
+            dict: 'Training Loss': supervised learning loss
         """
-        # Convert observations/actions to tensors 🏁
+        # Convert numpy arrays to tensors
         observations = ptu.from_numpy(observations)
         actions = ptu.from_numpy(actions)
         
-        # Get mean actions from policy network 🏁
-        predicted_actions = self.mean_net(observations)
-        
-        # Calculate MSE loss 🏁
-        loss = F.mse_loss(predicted_actions, actions)
-        
-        # Gradient descent 🏁
+        # Zero out gradients
         self.optimizer.zero_grad()
+        
+        # Forward pass to get predicted actions and distribution
+        pred_actions, distribution = self.forward(observations)
+        
+        # Compute negative log likelihood loss
+        loss = -distribution.log_prob(actions).mean()
+        
+        # Backward pass
         loss.backward()
+        
+        # Update parameters
         self.optimizer.step()
-
+        
         return {
             'Training Loss': ptu.to_numpy(loss),
         }

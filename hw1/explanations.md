@@ -291,3 +291,119 @@ This is actually a key feature of DAGGER's design:
 - This comprehensive relabeling helps create a robust policy that can recover from mistakes
 
 This is different from some other imitation learning algorithms that might selectively relabel or only relabel certain states/trajectories. DAGGER takes the approach of getting expert feedback on everything the student encounters to build a comprehensive training dataset.
+
+
+# Understanding mean and variance for MLP
+
+
+Let me explain the role and significance of the `logstd` parameter in this policy network implementation.
+
+In this MLP policy, we're implementing what's known as a Gaussian policy for continuous action spaces. The policy outputs a probability distribution over actions rather than deterministic actions. Specifically, it outputs a diagonal Gaussian distribution characterized by two parameters:
+
+1. The mean (μ) - computed by the neural network (`mean_net`)
+2. The standard deviation (σ) - parameterized through `logstd`
+
+The `logstd` parameter is defined as:
+```python
+self.logstd = nn.Parameter(
+    torch.zeros(self.ac_dim, dtype=torch.float32, device=ptu.device)
+)
+```
+
+Here's why this is important:
+
+1. **Why nn.Parameter?**
+   - `nn.Parameter` is a special kind of Tensor in PyTorch that gets automatically registered as a parameter of the model
+   - When you wrap a tensor with `nn.Parameter`, it tells PyTorch that this tensor should be considered a trainable parameter
+   - This means during backpropagation, gradients will be computed with respect to this parameter, and it will be updated during optimization
+
+2. **Why logarithm of standard deviation?**
+   - We use log(σ) instead of σ directly because:
+     - It ensures the actual standard deviation is always positive (since σ = exp(log(σ)))
+     - It's numerically more stable for optimization
+     - It allows for more efficient exploration of different scales of variance
+
+3. **Shape and Initialization**
+   - The `logstd` has shape `[ac_dim]`, meaning we learn a separate standard deviation for each dimension of the action space
+   - It's initialized to zeros, meaning initial σ = exp(0) = 1 for all dimensions
+   - This is a common practice as it starts with moderate exploration
+
+4. **Usage in the Policy**
+   - During forward pass (though not implemented in this code yet), typically:
+     1. The `mean_net` computes the mean action μ
+     2. The `logstd` parameter gives log(σ)
+     3. A Gaussian distribution is created with these parameters: N(μ, σ)
+     4. Actions are sampled from this distribution
+
+5. **Learning Process**
+   - The optimizer is set up to update both the network parameters and logstd:
+   ```python
+   self.optimizer = optim.Adam(
+       itertools.chain([self.logstd], self.mean_net.parameters()),
+       self.learning_rate
+   )
+   ```
+   - During training, both the mean (through network weights) and standard deviation (through logstd) are learned
+   - This allows the policy to learn not just the best action (mean) but also how uncertain it should be about those actions (variance)
+
+This dual parameterization (mean + learned standard deviation) is crucial for:
+- Exploration: Higher σ means more exploration in that action dimension
+- Uncertainty representation: The policy can learn to be more certain about some actions than others
+- Stable learning: The log parameterization ensures stable training dynamics
+
+This is a standard approach in policy gradient methods for continuous control, where having a stochastic policy is important for both exploration and robustness.
+
+
+## Would a neural network output two parameters, the mean and the variance?
+
+In this specific implementation, the neural network (`mean_net`) only outputs the mean, while `logstd` is a separate learnable parameter that exists outside the neural network architecture. Let me explain this design choice and contrast it with alternatives:
+
+**Current Implementation (Separate Parameter)**:
+```python
+# From the code:
+self.mean_net = build_mlp(
+    input_size=self.ob_dim,
+    output_size=self.ac_dim,
+    n_layers=self.n_layers, size=self.size,
+)
+self.logstd = nn.Parameter(torch.zeros(self.ac_dim))
+```
+
+In this design:
+1. The neural network outputs only the mean (shape: `[batch_size, ac_dim]`)
+2. The `logstd` is a single vector (shape: `[ac_dim]`) shared across all inputs
+3. The same standard deviation is used for all observations, but it's still learned during training
+
+**Alternative Design (Network Outputs Both)**:
+You could alternatively have the network output both μ and log(σ). It would look something like:
+
+```python
+# Alternative implementation (not in current code)
+self.network = build_mlp(
+    input_size=self.ob_dim,
+    output_size=2 * self.ac_dim,  # Double the output size
+    n_layers=self.n_layers,
+    size=self.size,
+)
+```
+
+In this case:
+1. The network would output `2 * ac_dim` values
+2. First `ac_dim` values would be the mean
+3. Second `ac_dim` values would be the logstd
+4. Each observation would get its own mean AND standard deviation
+
+**Why Use Separate Parameter?**
+The current implementation (separate `logstd`) is chosen because:
+1. **Simplicity**: Having a global learnable variance is often sufficient for many tasks
+2. **Stability**: Learning state-dependent variances can be more unstable
+3. **Sample Efficiency**: Fewer parameters to learn, which can be important in RL
+4. **Controlled Exploration**: Global variance parameters make it easier to control exploration behavior
+
+Both approaches are valid and used in practice. The choice often depends on:
+- Whether you want state-dependent uncertainty
+- The complexity of the task
+- How much data you have
+- How stable you need the training to be
+
+For this homework implementation, using a separate `logstd` parameter provides a good balance of simplicity and effectiveness for learning a basic policy.
