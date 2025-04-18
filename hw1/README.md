@@ -1,20 +1,24 @@
 ## Results
 
 ### Results for BC 
-Eval_AverageReturn : 4172.27197265625
-Eval_StdReturn : 0.0
-Eval_MaxReturn : 4172.27197265625
-Eval_MinReturn : 4172.27197265625
-Eval_AverageEpLen : 1000.0
-Train_AverageReturn : 4681.891673935816
-Train_StdReturn : 30.70862278765526
-Train_MaxReturn : 4712.600296723471
-Train_MinReturn : 4651.18305114816
-Train_AverageEpLen : 1000.0
-Training Loss : -1.9152398109436035
-Train_EnvstepsSoFar : 0
-TimeSinceStart : 4.800348520278931
-Initial_DataCollection_AverageReturn : 4681.891673935816
+| Metric | Value |
+|--------|--------|
+| Eval_AverageReturn | 4172.27 |
+| Eval_StdReturn | 0.00 |
+| Eval_MaxReturn | 4172.27 |
+| Eval_MinReturn | 4172.27 |
+| Eval_AverageEpLen | 1000.00 |
+| Train_AverageReturn | 4681.89 |
+| Train_StdReturn | 30.71 |
+| Train_MaxReturn | 4712.60 |
+| Train_MinReturn | 4651.18 |
+| Train_AverageEpLen | 1000.00 |
+| Training Loss | -1.92 |
+| Train_EnvstepsSoFar | 0.00 |
+| TimeSinceStart | 4.80 |
+| Initial_DataCollection_AverageReturn | 4681.89 |
+
+
 
 
 ![Random Policy](videos/untrained_spider.gif)
