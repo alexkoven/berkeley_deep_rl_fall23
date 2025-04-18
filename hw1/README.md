@@ -1,3 +1,26 @@
+## Results
+
+### Results for BC 
+Eval_AverageReturn : 4172.27197265625
+Eval_StdReturn : 0.0
+Eval_MaxReturn : 4172.27197265625
+Eval_MinReturn : 4172.27197265625
+Eval_AverageEpLen : 1000.0
+Train_AverageReturn : 4681.891673935816
+Train_StdReturn : 30.70862278765526
+Train_MaxReturn : 4712.600296723471
+Train_MinReturn : 4651.18305114816
+Train_AverageEpLen : 1000.0
+Training Loss : -1.9152398109436035
+Train_EnvstepsSoFar : 0
+TimeSinceStart : 4.800348520278931
+Initial_DataCollection_AverageReturn : 4681.891673935816
+
+
+![Random Policy](videos/untrained_spider.gif)
+![BC Ant Policy Trained](videos/spider_bc_trained.gif)
+
+
 ## Setup
 
 You can run this code on your own machine or on Google Colab. 
