@@ -19,9 +19,10 @@
 | Initial_DataCollection_AverageReturn | 4681.89 |
 
 
-
-
+### Before Training
 ![Random Policy](videos/untrained_spider.gif)
+
+### After Training
 ![BC Ant Policy Trained](videos/spider_bc_trained.gif)
 
 
