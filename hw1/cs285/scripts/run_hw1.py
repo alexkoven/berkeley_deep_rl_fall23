@@ -168,7 +168,6 @@ def run_training_loop(params):
         training_logs = []
         for _ in range(params['num_agent_train_steps_per_iter']):
 
-          # TODO: sample some data from replay_buffer
           # HINT1: how much data = params['train_batch_size']
           # HINT2: use np.random.permutation to sample random indices
           # HINT3: return corresponding data points from each array (i.e., not different indices from each array)

@@ -159,7 +159,7 @@ class MLPPolicySL(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         self.optimizer.zero_grad()
         
         # Forward pass to get predicted actions and distribution
-        pred_actions, distribution = self.forward(observations)
+        _, distribution = self.forward(observations)
         
         # Compute negative log likelihood loss
         loss = -distribution.log_prob(actions).mean()
