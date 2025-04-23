@@ -41,10 +41,12 @@
 | Initial_DataCollection_AverageReturn | 4681.89 |
 
 
-Before Training
+Before Training:
+
 ![Random Policy](videos/untrained_spider.gif)
 
 After Training:
+
 ![BC Ant Policy Trained](videos/spider_bc_trained.gif)
 
 ### Imitation Learning (DAgger)
@@ -65,7 +67,8 @@ After Training:
 | TimeSinceStart | 58.27 |
 
 
-After Training
+After Training:
+
 ![IL Ant Policy Trained](videos/spider_il_trained.gif)
 
 ## Algorithm Workflow and Insights
@@ -736,10 +739,10 @@ loss = -distribution.log_prob(actions).mean()
 ```
 
 This is mathematically equivalent to:
-\[ L(\theta) = -\frac{1}{N}\sum_{i=1}^N \log \pi_\theta(a_i|s_i) \]
+$$ L(\theta) = -\frac{1}{N}\sum_{i=1}^N \log \pi_\theta(a_i|s_i) $$
 
 where for a Gaussian policy:
-\[ \log \pi_\theta(a|s) = -\frac{(a - \mu_\theta(s))^2}{2\sigma^2} - \log(\sigma) - \frac{1}{2}\log(2\pi) \]
+$$ \log \pi_\theta(a|s) = -\frac{(a - \mu_\theta(s))^2}{2\sigma^2} - \log(\sigma) - \frac{1}{2}\log(2\pi) $$
 
 3. The gradient descent step then updates:
 - The mean network parameters to make the mean closer to the expert actions
