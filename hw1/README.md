@@ -1,6 +1,6 @@
 ## Results
 
-### Results for BC 
+### Behavior Cloning (BC)
 | Metric | Value |
 |--------|--------|
 | Eval_AverageReturn | 4172.27 |
@@ -19,11 +19,30 @@
 | Initial_DataCollection_AverageReturn | 4681.89 |
 
 
-### Before Training
+#### Before Training
 ![Random Policy](videos/untrained_spider.gif)
 
-### After Training
+#### After Training
 ![BC Ant Policy Trained](videos/spider_bc_trained.gif)
+
+### Imitation Learning (DAgger)
+| Metric | Value |
+|--------|--------|
+| Eval_AverageReturn | 4770.26 |
+| Eval_StdReturn | 121.56 |
+| Eval_MaxReturn | 4941.97 |
+| Eval_MinReturn | 4611.63 |
+| Eval_AverageEpLen | 1000.00 |
+| Train_AverageReturn | 4723.17 |
+| Train_StdReturn | 0.00 |
+| Train_MaxReturn | 4723.17 |
+| Train_MinReturn | 4723.17 |
+| Train_AverageEpLen | 1000.00 |
+| Training Loss | -2.55 |
+| Train_EnvstepsSoFar | 9000.00 |
+| TimeSinceStart | 58.27 |
+
+
 
 
 ## Setup
