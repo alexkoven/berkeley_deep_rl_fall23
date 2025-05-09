@@ -131,3 +131,6 @@ dmypy.json
 
 hw1/data/
 .cursor/
+
+hw2/hw2_template.*
+hw2/quiver.sty

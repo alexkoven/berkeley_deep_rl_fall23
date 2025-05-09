@@ -20,6 +20,7 @@
   - [Would a neural network output two parameters, the mean and the variance?](#would-a-neural-network-output-two-parameters-the-mean-and-the-variance)
   - [How does the update function work?](#how-does-the-update-function-work)
 
+
 ## Results
 
 ### Behavior Cloning (BC)

@@ -15,7 +15,7 @@ def sample_trajectory(
     env: gym.Env, policy: MLPPolicy, max_length: int, render: bool = False
 ) -> Dict[str, np.ndarray]:
     """Sample a rollout in the environment from a policy."""
-    ob = env.reset()
+    ob, _ = env.reset()  # Unpack the observation from the reset tuple
     obs, acs, rewards, next_obs, terminals, image_obs = [], [], [], [], [], []
     steps = 0
     while True:
@@ -29,15 +29,17 @@ def sample_trajectory(
                 cv2.resize(img, dsize=(250, 250), interpolation=cv2.INTER_CUBIC)
             )
 
-        # TODO use the most recent ob and the policy to decide what to do
-        ac: np.ndarray = None
+        # Get action from policy
+        ac, _ = policy(ptu.from_numpy(ob))  # Convert observation to tensor, get action from policy
+        ac = ac.detach().cpu().numpy()
 
-        # TODO: use that action to take a step in the environment
-        next_ob, rew, done, _ = None, None, None, None
-
-        # TODO rollout can end due to done, or due to max_length
+        # Take step in environment
+        next_ob, rew, terminated, truncated, _ = env.step(ac)  # Standard gym environment step
+        
+        # Determine if rollout is done
         steps += 1
-        rollout_done: bool = None
+        done = terminated or truncated
+        rollout_done = 1 if done or steps >= max_length else 0
 
         # record result of taking that action
         obs.append(ob)
