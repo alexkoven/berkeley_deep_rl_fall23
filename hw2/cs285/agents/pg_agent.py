@@ -115,8 +115,8 @@ class PGAgent(nn.Module):
         Operates on flat 1D NumPy arrays.
         """
         if self.critic is None:
-            # TODO: if no baseline, then what are the advantages?
-            advantages = None
+            # If no baseline, advantages are just the Q-values (reward-to-go)
+            advantages = q_values
         else:
             # TODO: run the critic and use it as a baseline
             values = None
@@ -156,7 +156,18 @@ class PGAgent(nn.Module):
         Note that all entries of the output list should be the exact same because each sum is from 0 to T (and doesn't
         involve t)!
         """
-        return None
+        # Convert rewards to numpy array for efficient computation
+        rewards = np.array(rewards)
+        
+        # Calculate discounted sum: sum_{t'=0}^T gamma^t' r_{t'}
+        # We create an array of discount factors [gamma^0, gamma^1, ..., gamma^T]
+        discount_factors = np.power(self.gamma, np.arange(len(rewards)))
+        
+        # Multiply rewards by discount factors and sum
+        discounted_sum = np.sum(rewards * discount_factors)
+        
+        # Return a list where each entry is the same discounted sum
+        return [discounted_sum] * len(rewards)
 
 
     def _discounted_reward_to_go(self, rewards: Sequence[float]) -> Sequence[float]:
@@ -164,4 +175,20 @@ class PGAgent(nn.Module):
         Helper function which takes a list of rewards {r_0, r_1, ..., r_t', ... r_T} and returns a list where the entry
         in each index t' is sum_{t'=t}^T gamma^(t'-t) * r_{t'}.
         """
-        return None
+        # Convert rewards to numpy array for efficient computation
+        rewards = np.array(rewards)
+        T = len(rewards)
+        
+        # Initialize array to store reward-to-go values
+        rtg = np.zeros(T)
+        
+        # For each timestep t, calculate sum_{t'=t}^T gamma^(t'-t) * r_{t'}
+        for t in range(T):
+            # Get rewards from t to T
+            future_rewards = rewards[t:]
+            # Create discount factors starting from t: [gamma^0, gamma^1, ..., gamma^(T-t)]
+            discount_factors = np.power(self.gamma, np.arange(len(future_rewards)))
+            # Calculate discounted sum for this timestep
+            rtg[t] = np.sum(future_rewards * discount_factors)
+            
+        return rtg.tolist()

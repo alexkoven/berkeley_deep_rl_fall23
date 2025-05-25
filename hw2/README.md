@@ -1,6 +1,143 @@
 ## Results
 To be added.
 
+## Call Stack for Policy Gradient Training
+
+The following is the complete call stack for training a policy gradient agent:
+
+```
+run_hw2.py:main()
+└── run_training_loop(args)
+    ├── Initialize environment (gym.make)
+    ├── Initialize PGAgent
+    └── For each iteration:
+        ├── utils.sample_trajectories(env, agent.actor, args.batch_size, max_ep_len)
+        │   └── Returns list of trajectories containing:
+        │       ├── observations
+        │       ├── actions
+        │       ├── rewards
+        │       ├── next_observations
+        │       └── terminals
+        │
+        ├── Convert trajectories to dictionary format
+        │
+        ├── agent.update(obs, actions, rewards, terminals)
+        │   ├── _calculate_q_vals(rewards)
+        │   │   ├── _discounted_return(rewards)  # if not using reward-to-go
+        │   │   └── _discounted_reward_to_go(rewards)  # if using reward-to-go
+        │   │
+        │   ├── _estimate_advantage(obs, rewards, q_values, terminals)
+        │   │   ├── Calculate baseline (if use_baseline=True)
+        │   │   └── Normalize advantages (if normalize_advantages=True)
+        │   │
+        │   └── MLPPolicyPG.update(obs, actions, advantages)
+        │       └── Update policy network parameters
+        │
+        ├── Evaluate (if scalar_log_freq)
+        │   └── utils.sample_trajectories(env, agent.actor, args.eval_batch_size, max_ep_len)
+        │
+        └── Collect video rollouts (if video_log_freq)
+            └── utils.sample_n_trajectories(env, agent.actor, MAX_NVIDEO, max_ep_len, render=True)
+```
+
+Key command line arguments for basic policy gradient:
+```bash
+python cs285/scripts/run_hw2.py \
+    --env_name CartPole-v0 \
+    --exp_name test_pg \
+    --n_iter 100 \
+    --batch_size 1000 \
+    --learning_rate 5e-3 \
+    --n_layers 2 \
+    --layer_size 64 \
+    --discount 1.0
+```
+
+Optional arguments that affect training:
+- `--use_reward_to_go`: Use reward-to-go instead of full returns
+- `--normalize_advantages`: Normalize advantages to mean 0, std 1
+- `--use_baseline`: Use value function baseline
+- `--gae_lambda`: Use Generalized Advantage Estimation
+
+
+## 8. Homework Analysis
+
+### 1. Policy-gradient calculations for the 2-action, single-state MDP (no discount)
+
+We write every trajectory in terms of the **number of times the agent keeps pressing `a₁` before it finally terminates with `a₂`**.
+Let
+
+$$
+n\;:=\;\text{“failures” before the first success}=\#\{\,a_{1}\text{ taken}\,\}\in\{0,1,2,\dots\}
+$$
+
+
+#### Action probabilities and trajectory statistics
+
+| quantity                           | value for a trajectory with $n$ repeats of $a_{1}$                    |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| probability of that trajectory     | $P_\theta(n)=\theta^{n}(1-\theta)$                                    |
+| return (total undiscounted reward) | $R(n)=n$                                                              |
+| log-probability                    | $\log P_\theta(n)= n\log\theta+\log(1-\theta)$                        |
+| score function                     | $\nabla_\theta\log P_\theta(n)=\dfrac{n}{\theta}-\dfrac{1}{1-\theta}$ |
+
+The random variable $n$ therefore follows a geometric distribution
+$\mathcal G(p)$ with “success” probability $p=1-\theta$.
+
+
+#### 1 (a) Policy-gradient theorem calculation
+
+$$
+\nabla_\theta J(\theta)\;=\;\mathbb E_{n\sim \mathcal G(1-\theta)}
+\Bigl[\,R(n)\,\nabla_\theta\log P_\theta(n)\Bigr]
+\;=\;\mathbb E\bigl[n\bigl(\tfrac{n}{\theta}-\tfrac{1}{1-\theta}\bigr)\bigr]
+= \frac{\mathbb E[n^{2}]}{\theta}-\frac{\mathbb E[n]}{1-\theta}.
+$$
+
+For a geometric $\mathcal G(1-\theta)$:
+
+$$
+\mathbb E[n]=\frac{\theta}{1-\theta},\qquad
+\operatorname{Var}[n]=\frac{\theta}{(1-\theta)^{2}},\qquad
+\mathbb E[n^{2}]=\operatorname{Var}[n]+\mathbb E[n]^{2}
+              =\frac{\theta(1+\theta)}{(1-\theta)^{2}}.
+$$
+
+Substituting,
+
+$$
+\nabla_\theta J(\theta)
+      =\frac{1+\theta}{(1-\theta)^{2}}
+       -\frac{\theta}{(1-\theta)^{2}}
+      =\boxed{\frac{1}{(1-\theta)^{2}}}.
+$$
+
+
+#### 1 (b) Direct expectation of the return and its derivative
+
+Because each $a_{1}$ yields reward 1 and the episode stops at the first $a_{2}$,
+
+$$
+J(\theta)=\mathbb E[R]
+       =\sum_{n=0}^{\infty}(1-\theta)\theta^{n}\,n
+       =(1-\theta)\sum_{n=0}^{\infty}n\theta^{n}
+       =(1-\theta)\frac{\theta}{(1-\theta)^{2}}
+       =\frac{\theta}{1-\theta}.
+$$
+
+Differentiate w\.r.t. $\theta$:
+
+$$
+\nabla_\theta J(\theta)
+      =\frac{(1-\theta)-\theta(-1)}{(1-\theta)^{2}}
+      =\boxed{\frac{1}{(1-\theta)^{2}}},
+$$
+
+in perfect agreement with the policy-gradient-theorem result in part (a).
+
+Hence the likelihood-ratio policy-gradient estimator is **unbiased** and its analytic expectation equals the true gradient $1/(1-\theta)^{2}$.
+
+---
 
 ## Relevant Side Information
 
