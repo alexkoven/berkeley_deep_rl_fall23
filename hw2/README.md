@@ -186,26 +186,74 @@ These changes reflect the transition from supervised learning (behavior cloning)
 
 
 
-## Setup
+## Are we using replay buffer?
 
-See [installation.md](installation.md). It's worth going through this again since some dependencies have changed since homework 1. You also need to make sure to run `pip install -e .` in the hw2 folder.
+Let me search through the codebase to understand how data handling is implemented in hw2.
 
-## Running on Google Cloud
-Starting with HW2, we will be providing some infrastructure to run experiments on Google Cloud compute. There are some very important caveats:
 
-- **Do not leave your instance running.** The provided infrastructure tries to prevent this, but it will still be easy to accidentally leave your instance running and burn through all of your credits. You are responsible for making sure you use your credits wisely.
-- **Only use this for big hyperparameter sweeps.** Definitely don't use Google Cloud for debugging; only launch a job once you are 100% sure your code works. Even then, single jobs will probably run faster on your local machine (yes, even if you don't have a GPU). The only reason to use Google Cloud is if you want to run multiple jobs in parallel.
+Ran tool
+Based on my analysis of the codebase, hw2 does not use a traditional replay buffer or data buffer. Instead, it uses an on-policy approach where:
 
-For more instructions, see [google_cloud/README.md](google_cloud/README.md).
+1. Data Collection:
+- The code collects trajectories (episodes) on-the-fly using the current policy
+- This is done in `utils.py` through the `sample_trajectory()` and `sample_trajectories()` functions
+- Each trajectory contains observations, actions, rewards, next observations, and terminal flags
 
-## Assignment
+2. Training Process:
+- The data is collected in batches (specified by `batch_size` parameter)
+- Each batch contains multiple trajectories that sum up to at least `min_timesteps_per_batch` steps
+- The data is used immediately for training and then discarded
+- This is evident in `run_hw2.py` where trajectories are sampled and then immediately used to update the policy
 
-There are TODOs in these files:
+3. Key Implementation Details:
+- The `PGAgent` class in `pg_agent.py` processes the collected trajectories to:
+  - Calculate Q-values (returns)
+  - Estimate advantages
+  - Update the policy network
+  - Optionally update a value baseline network
 
-- `cs285/scripts/run_hw2.py`
-- `cs285/agents/pg_agent.py`
-- `cs285/networks/policies.py`
-- `cs285/networks/critics.py`
-- `cs285/infrastructure/utils.py`
+This is different from off-policy algorithms (like DQN) that use replay buffers to store and reuse past experiences. The policy gradient approach used here is on-policy, meaning it only uses data collected from the current policy to make updates.
 
-See the [Assignment PDF](hw2.pdf) for more info.
+The batch size parameter (default 1000) controls how many environment steps are collected before each policy update, but this is not a persistent buffer - it's just the amount of data collected for each training iteration.
+
+## How are the trajectories fed to the PG algorithm and how dense are the rewards?
+
+Let me analyze how the trajectories are processed and used for training, and examine the reward structure.
+
+
+Ran tool
+Let me explain how the trajectories are processed and used for training, and address the reward structure:
+
+1. Trajectory Processing:
+- The trajectories are collected in temporal order during sampling (in `sample_trajectory()`)
+- When used for training, they are flattened into single arrays (in `PGAgent.update()`):
+```python
+# flatten the lists of arrays into single arrays
+obs = np.concatenate(obs)
+actions = np.concatenate(actions)
+rewards = np.concatenate(rewards)
+terminals = np.concatenate(terminals)
+q_values = np.concatenate(q_values)
+```
+- The temporal order is preserved during flattening, but the policy gradient update itself doesn't depend on the order since it treats each (state, action) pair independently
+
+2. Training Process:
+- The policy gradient update uses all datapoints in the batch to compute the loss:
+```python
+# Compute policy loss as negative mean of (log_probs * advantages)
+loss = -(log_probs * advantages).mean()
+```
+- This means each (state, action) pair contributes equally to the gradient, regardless of its position in the trajectory
+- The advantages/returns are computed in temporal order (either full returns or reward-to-go) but the actual gradient update treats each sample independently
+
+3. Reward Structure:
+Looking at the environments used in hw2:
+- CartPole-v0: Dense rewards (every action gets a reward)
+- HalfCheetah: Dense rewards (continuous rewards for movement)
+- LunarLander: Semi-dense rewards (rewards for various actions like firing engines, landing)
+- InvertedPendulum: Dense rewards (continuous rewards for keeping the pole upright)
+- Humanoid: Dense rewards (continuous rewards for movement and staying upright)
+
+None of these environments are truly sparse in their reward structure. They all provide feedback (rewards) for most actions, which is why policy gradient methods work well on them. The rewards are designed to guide the agent toward the desired behavior through continuous feedback rather than sparse, delayed rewards.
+
+The temporal ordering of the trajectories is important for computing the returns/advantages (especially for reward-to-go calculations), but the actual policy update treats each sample independently. This is why the policy gradient method can work with both dense and sparse rewards, though it generally performs better with dense rewards as they provide more immediate feedback for learning.

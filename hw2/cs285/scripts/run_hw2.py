@@ -5,6 +5,7 @@ from cs285.agents.pg_agent import PGAgent
 
 import os
 import time
+import json
 
 import gym
 import numpy as np
@@ -14,6 +15,7 @@ from cs285.infrastructure import pytorch_util as ptu
 from cs285.infrastructure import utils
 from cs285.infrastructure.logger import Logger
 from cs285.infrastructure.action_noise_wrapper import ActionNoiseWrapper
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
 MAX_NVIDEO = 2
 
@@ -27,7 +29,11 @@ def run_training_loop(args):
     ptu.init_gpu(use_gpu=not args.no_gpu, gpu_id=args.which_gpu)
 
     # make the gym environment
-    env = gym.make(args.env_name, render_mode=None)
+    render_mode = 'rgb_array' if args.video_log_freq != -1 else None
+    if render_mode is not None:
+        env = gym.make(args.env_name, render_mode=render_mode)
+    else:
+        env = gym.make(args.env_name)
     discrete = isinstance(env.action_space, gym.spaces.Discrete)
 
     # add action noise, if needed
@@ -68,17 +74,23 @@ def run_training_loop(args):
 
     for itr in range(args.n_iter):
         print(f"\n********** Iteration {itr} ************")
-        # TODO: sample `args.batch_size` transitions using utils.sample_trajectories
-        # make sure to use `max_ep_len`
-        trajs, envsteps_this_batch = None, None  # TODO
+        # Sample trajectories using the current policy
+        trajs, envsteps_this_batch = utils.sample_trajectories(
+            env, agent.actor, args.batch_size, max_ep_len
+        )
         total_envsteps += envsteps_this_batch
 
         # trajs should be a list of dictionaries of NumPy arrays, where each dictionary corresponds to a trajectory.
         # this line converts this into a single dictionary of lists of NumPy arrays.
         trajs_dict = {k: [traj[k] for traj in trajs] for k in trajs[0]}
 
-        # TODO: train the agent using the sampled trajectories and the agent's update function
-        train_info: dict = None
+        # Train the agent using the sampled trajectories
+        train_info = agent.update(
+            trajs_dict["observation"],
+            trajs_dict["action"],
+            trajs_dict["reward"],
+            trajs_dict["terminal"]
+        )
 
         if itr % args.scalar_log_freq == 0:
             # save eval metrics
@@ -118,6 +130,41 @@ def run_training_loop(args):
                 max_videos_to_save=MAX_NVIDEO,
                 video_title="eval_rollouts",
             )
+
+    # Convert TensorBoard logs to JSON at the end of training
+    print("\nConverting TensorBoard logs to JSON...")
+    event_acc = EventAccumulator(args.logdir)
+    event_acc.Reload()
+    
+    # Get all available tags
+    tags = event_acc.Tags()['scalars']
+    
+    # Create a dictionary to store the data
+    data = {}
+    for tag in tags:
+        events = event_acc.Scalars(tag)
+        data[tag] = {
+            'values': [float(event.value) for event in events],  # Convert to float for JSON serialization
+            'steps': [int(event.step) for event in events],      # Convert to int for JSON serialization
+            'wall_times': [float(event.wall_time) for event in events]  # Include wall times for reference
+        }
+    
+    # Add metadata
+    data['metadata'] = {
+        'env_name': args.env_name,
+        'exp_name': args.exp_name,
+        'batch_size': args.batch_size,
+        'use_reward_to_go': args.use_reward_to_go,
+        'use_baseline': args.use_baseline,
+        'normalize_advantages': args.normalize_advantages,
+        'gae_lambda': args.gae_lambda
+    }
+    
+    # Save as JSON
+    json_path = os.path.join(args.logdir, 'training_logs.json')
+    with open(json_path, 'w') as f:
+        json.dump(data, f, indent=2)
+    print(f"Training logs saved to {json_path}")
 
 
 def main():

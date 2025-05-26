@@ -24,14 +24,13 @@ def sample_trajectory(
             if hasattr(env, "sim"):
                 img = env.sim.render(camera_name="track", height=500, width=500)[::-1]
             else:
-                img = env.render(mode="single_rgb_array")
+                img = env.render()
             image_obs.append(
                 cv2.resize(img, dsize=(250, 250), interpolation=cv2.INTER_CUBIC)
             )
 
         # Get action from policy
-        ac, _ = policy(ptu.from_numpy(ob))  # Convert observation to tensor, get action from policy
-        ac = ac.detach().cpu().numpy()
+        ac = policy.get_action(ob)  # Use get_action instead of direct policy call
 
         # Take step in environment
         next_ob, rew, terminated, truncated, _ = env.step(ac)  # Standard gym environment step

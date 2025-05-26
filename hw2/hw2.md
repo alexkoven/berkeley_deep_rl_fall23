@@ -3,14 +3,14 @@
 ### I Core Implementation
 
 #### 1. `pg_agent.py`
-- [ ] Implement **return estimators**:
-  - [ ] **Case 1:** Full-trajectory discounted returns (Equation 22)
-  - [ ] **Case 2:** Reward-to-go discounted returns (Equation 23)
+- [x] Implement **return estimators**:
+  - [x] **Case 1:** Full-trajectory discounted returns 
+  - [x] **Case 2:** Reward-to-go discounted returns
 - [ ] Skip baseline code sections for now
 
 #### 2. `estimate_advantage` (in `pg_agent.py`)
-- [ ] Complete the `estimate_advantage` method:
-  - [ ] Implement vanilla advantage = reward-to-go
+- [x] Complete the `estimate_advantage` method:
+  - [x] Implement vanilla advantage = reward-to-go
   - [ ] Later: subtract NN baseline
   - [ ] Later: implement GAE
 

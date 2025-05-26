@@ -60,13 +60,27 @@ class PGAgent(nn.Module):
         Each input is a list of NumPy arrays, where each array corresponds to a single trajectory. The batch size is the
         total number of samples across all trajectories (i.e. the sum of the lengths of all the arrays).
         """
+        print("\nDEBUG: Input shapes:")
+        print(f"obs: {[o.shape for o in obs]}")
+        print(f"actions: {[a.shape for a in actions]}")
+        print(f"rewards: {[r.shape for r in rewards]}")
+        print(f"terminals: {[t.shape for t in terminals]}")
 
         # step 1: calculate Q values of each (s_t, a_t) point, using rewards (r_0, ..., r_t, ..., r_T)
         q_values: Sequence[np.ndarray] = self._calculate_q_vals(rewards)
+        print("\nDEBUG: After _calculate_q_vals:")
+        print(f"q_values type: {type(q_values)}")
+        print(f"q_values: {q_values}")
+        if isinstance(q_values, list):
+            print(f"q_values elements: {[type(q) for q in q_values]}")
+            print(f"q_values shapes: {[q.shape if hasattr(q, 'shape') else len(q) for q in q_values]}")
 
-        # TODO: flatten the lists of arrays into single arrays, so that the rest of the code can be written in a vectorized
-        # way. obs, actions, rewards, terminals, and q_values should all be arrays with a leading dimension of `batch_size`
-        # beyond this point.
+        # flatten the lists of arrays into single arrays
+        obs = np.concatenate(obs)
+        actions = np.concatenate(actions)
+        rewards = np.concatenate(rewards)
+        terminals = np.concatenate(terminals)
+        q_values = np.concatenate(q_values)
 
         # step 2: calculate advantages from Q values
         advantages: np.ndarray = self._estimate_advantage(
@@ -74,8 +88,7 @@ class PGAgent(nn.Module):
         )
 
         # step 3: use all datapoints (s_t, a_t, adv_t) to update the PG actor/policy
-        # TODO: update the PG actor/policy network once using the advantages
-        info: dict = None
+        info = self.actor.update(obs, actions, advantages)
 
         # step 4: if needed, use all datapoints (s_t, a_t, q_t) to update the PG critic/baseline
         if self.critic is not None:
@@ -93,13 +106,11 @@ class PGAgent(nn.Module):
             # Case 1: in trajectory-based PG, we ignore the timestep and instead use the discounted return for the entire
             # trajectory at each point.
             # In other words: Q(s_t, a_t) = sum_{t'=0}^T gamma^t' r_{t'}
-            # TODO: use the helper function self._discounted_return to calculate the Q-values
-            q_values = None
+            q_values = [self._discounted_return(r) for r in rewards]
         else:
             # Case 2: in reward-to-go PG, we only use the rewards after timestep t to estimate the Q-value for (s_t, a_t).
             # In other words: Q(s_t, a_t) = sum_{t'=t}^T gamma^(t'-t) * r_{t'}
-            # TODO: use the helper function self._discounted_reward_to_go to calculate the Q-values
-            q_values = None
+            q_values = [self._discounted_reward_to_go(r) for r in rewards]
 
         return q_values
 
@@ -148,47 +159,30 @@ class PGAgent(nn.Module):
 
         return advantages
 
-    def _discounted_return(self, rewards: Sequence[float]) -> Sequence[float]:
+    def _discounted_return(self, rewards: Sequence[float]) -> np.ndarray:
         """
         Helper function which takes a list of rewards {r_0, r_1, ..., r_t', ... r_T} and returns
-        a list where each index t contains sum_{t'=0}^T gamma^t' r_{t'}
-
-        Note that all entries of the output list should be the exact same because each sum is from 0 to T (and doesn't
-        involve t)!
+        a numpy array where each index t contains sum_{t'=0}^T gamma^t' r_{t'}
         """
-        # Convert rewards to numpy array for efficient computation
-        rewards = np.array(rewards)
-        
-        # Calculate discounted sum: sum_{t'=0}^T gamma^t' r_{t'}
-        # We create an array of discount factors [gamma^0, gamma^1, ..., gamma^T]
-        discount_factors = np.power(self.gamma, np.arange(len(rewards)))
-        
-        # Multiply rewards by discount factors and sum
-        discounted_sum = np.sum(rewards * discount_factors)
-        
-        # Return a list where each entry is the same discounted sum
-        return [discounted_sum] * len(rewards)
-
-
-    def _discounted_reward_to_go(self, rewards: Sequence[float]) -> Sequence[float]:
-        """
-        Helper function which takes a list of rewards {r_0, r_1, ..., r_t', ... r_T} and returns a list where the entry
-        in each index t' is sum_{t'=t}^T gamma^(t'-t) * r_{t'}.
-        """
-        # Convert rewards to numpy array for efficient computation
         rewards = np.array(rewards)
         T = len(rewards)
-        
-        # Initialize array to store reward-to-go values
-        rtg = np.zeros(T)
-        
-        # For each timestep t, calculate sum_{t'=t}^T gamma^(t'-t) * r_{t'}
+        q_values = np.zeros(T, dtype=np.float32)
         for t in range(T):
-            # Get rewards from t to T
+            # For each timestep t, calculate the discounted sum of all rewards
+            discount_factors = np.power(self.gamma, np.arange(T))
+            q_values[t] = np.sum(rewards * discount_factors)
+        return q_values
+
+    def _discounted_reward_to_go(self, rewards: Sequence[float]) -> np.ndarray:
+        """
+        Helper function which takes a list of rewards {r_0, r_1, ..., r_t', ... r_T} and returns a numpy array where the entry
+        in each index t' is sum_{t'=t}^T gamma^(t'-t) * r_{t'}.
+        """
+        rewards = np.array(rewards)
+        T = len(rewards)
+        rtg = np.zeros(T, dtype=np.float32)
+        for t in range(T):
             future_rewards = rewards[t:]
-            # Create discount factors starting from t: [gamma^0, gamma^1, ..., gamma^(T-t)]
             discount_factors = np.power(self.gamma, np.arange(len(future_rewards)))
-            # Calculate discounted sum for this timestep
             rtg[t] = np.sum(future_rewards * discount_factors)
-            
-        return rtg.tolist()
+        return rtg
