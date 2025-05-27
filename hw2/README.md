@@ -139,9 +139,7 @@ Hence the likelihood-ratio policy-gradient estimator is **unbiased** and its ana
 
 ---
 
-## Relevant Side Information
-
-### Difference to HW1 Policy in networks/policies.py
+## Difference to HW1 Policy in networks/policies.py
 The main differences between `policies.py` (HW2) and `MLP_policy.py` (HW1) are:
 
 1. **Architecture and Inheritance**:
@@ -257,3 +255,486 @@ Looking at the environments used in hw2:
 None of these environments are truly sparse in their reward structure. They all provide feedback (rewards) for most actions, which is why policy gradient methods work well on them. The rewards are designed to guide the agent toward the desired behavior through continuous feedback rather than sparse, delayed rewards.
 
 The temporal ordering of the trajectories is important for computing the returns/advantages (especially for reward-to-go calculations), but the actual policy update treats each sample independently. This is why the policy gradient method can work with both dense and sparse rewards, though it generally performs better with dense rewards as they provide more immediate feedback for learning.
+
+
+## Does the cartpole video only show one episode?
+
+Yes, that's correct! In the current implementation, each episode runs independently and the video window resets when a new episode starts. Each episode starts with env.reset() which:
+- Resets the cart position to center
+- Resets the pole to vertical position
+- Clears the previous visualization
+- Starts a new episode
+
+
+## Explanation of Actor Loss
+
+Can you analyze the @q2_pg_cartpole_lb_no_rtg_no_na_CartPole-v0_26-05-2025_11-45-02  folder's in@hw2 data (json) and explain what the different metrics show and what their ideal curve should look like? For example, for a loss should it be monotonically increasing, etc. 
+
+---
+
+**Cursor**
+
+Let me search for and analyze the data folder you mentioned.
+
+
+Let me look at the contents of the specific folder you mentioned.
+
+
+Let me read the training logs to analyze the metrics.
+
+
+Let me analyze the key metrics from the training logs and explain what they mean and their ideal behavior:
+
+1. **Eval_AverageReturn**
+- This is the average return (total reward) achieved during evaluation episodes
+- Ideal behavior:
+  - Should generally increase over time as the policy improves
+  - For CartPole-v0, the maximum possible return is 200 (when the pole stays upright for 200 steps)
+  - We can see the agent quickly learns to achieve the maximum return (200) around iteration 18
+  - Some fluctuations are normal due to the stochastic nature of policy gradient methods
+  - The slight decrease at the end (from 200 to around 115) might indicate some instability in learning
+
+2. **Train_AverageReturn**
+- Similar to Eval_AverageReturn but measured during training episodes
+- Ideal behavior:
+  - Should generally increase over time
+  - May be more volatile than eval returns due to exploration during training
+  - Should eventually converge to a high value (close to 200 for CartPole)
+
+3. **Train_StdReturn**
+- Standard deviation of returns during training
+- Ideal behavior:
+  - Should generally decrease over time as the policy becomes more consistent
+  - Some variation is normal due to the stochastic nature of the environment and policy
+  - A very low std might indicate the policy is too deterministic and not exploring enough
+
+4. **Train_AverageEpLen**
+- Average episode length during training
+- Ideal behavior:
+  - For CartPole, should increase and eventually reach close to 200 steps
+  - Longer episodes indicate the pole stays upright longer
+  - Should correlate positively with the average return
+
+5. **Train_Entropy**
+- Entropy of the policy distribution
+- Ideal behavior:
+  - Should generally decrease over time as the policy becomes more deterministic
+  - A very low entropy might indicate the policy is too deterministic
+  - A very high entropy might indicate the policy is too random
+  - Some entropy is good for maintaining exploration
+
+6. **Train_Loss**
+- The policy gradient loss
+- Ideal behavior:
+  - Should generally decrease over time
+  - May be more volatile than other metrics
+  - The exact value is less important than the trend
+  - Fluctuations are normal due to the stochastic nature of policy gradient updates
+
+7. **Time**
+- Training time per iteration
+- Ideal behavior:
+  - Should be relatively constant
+  - Any significant increases might indicate performance issues
+
+8. **Train_BaselineLoss** (if using a baseline)
+- Loss of the value function baseline
+- Ideal behavior:
+  - Should generally decrease over time
+  - Should be lower than the policy loss
+  - Helps reduce variance in policy gradient updates
+
+9. **Train_ExplainedVariance** (if using a baseline)
+- How well the baseline predicts the returns
+- Ideal behavior:
+  - Should generally increase over time
+  - Values closer to 1.0 indicate better predictions
+  - Helps assess the quality of the baseline
+
+For CartPole-v0 specifically:
+- The agent should learn to balance the pole for 200 steps (maximum episode length)
+- The learning curve should show rapid improvement in the first few iterations
+- The policy should become relatively stable after reaching good performance
+- Some fluctuations in performance are normal due to the stochastic nature of policy gradient methods
+- The agent should maintain good performance (close to 200 steps) consistently after learning
+
+The data shows that your agent learned quickly (reaching 200 steps by iteration 18) but showed some instability later in training. This is not uncommon in policy gradient methods, and you might want to experiment with:
+1. Learning rate scheduling
+2. Different batch sizes
+3. Advantage normalization
+4. Reward-to-go calculations
+to achieve more stable performance.
+
+---
+
+**User**
+
+What about the actor_loss? 
+
+---
+
+**Cursor**
+
+Let me analyze the actor loss in the training logs.
+
+
+Let me try another search pattern since the loss might be logged under a different name.
+
+
+Let me read more of the training logs to find the loss metrics.
+
+
+Let me look at the code to understand how the actor loss is calculated and logged.
+
+
+Based on the code and training logs, let me explain the actor loss in policy gradient:
+
+1. **Actor Loss Calculation**:
+From `MLPPolicyPG.update()` in `policies.py`, the actor loss is calculated as:
+```python
+# Calculate log probabilities of taken actions
+if self.discrete:
+    log_probs = action_dist.log_prob(actions)
+else:
+    log_probs = action_dist.log_prob(actions).sum(dim=-1)
+
+# Compute policy loss as negative mean of (log_probs * advantages)
+loss = -(log_probs * advantages).mean()
+```
+
+2. **What the Actor Loss Represents**:
+- The actor loss is the negative expected advantage-weighted log probability of actions
+- It represents how well the policy is performing relative to the baseline (or just the returns if no baseline is used)
+- A lower loss means the policy is better at selecting actions that lead to higher returns
+
+3. **Ideal Behavior**:
+- The actor loss should generally decrease over time as the policy improves
+- However, it may not be monotonically decreasing due to:
+  - The stochastic nature of policy gradient updates
+  - Changes in the advantage estimates
+  - Exploration vs exploitation trade-off
+  - The fact that we're maximizing expected returns, not minimizing the loss directly
+
+4. **Interpretation**:
+- A decreasing trend indicates the policy is learning to select better actions
+- Fluctuations are normal and expected
+- The absolute value of the loss is less important than its trend
+- The loss might increase temporarily when the policy explores new actions
+
+5. **Relationship with Other Metrics**:
+- The actor loss should correlate with the average return
+- When the average return increases, the actor loss should generally decrease
+- The loss might increase when the policy is exploring new behaviors that could lead to better performance
+
+6. **Normalization Effects**:
+- If `normalize_advantages` is True, the advantages are normalized to have zero mean and unit variance
+- This can make the loss values more stable and easier to interpret
+- The loss values will be in a more consistent range across different environments
+
+7. **Baseline Effects**:
+- If using a baseline (value function), the advantages will be smaller
+- This can lead to smaller loss values but doesn't necessarily mean better performance
+- The baseline helps reduce variance in the updates
+
+8. **Warning Signs**:
+- If the loss becomes extremely large or small, it might indicate numerical instability
+- If the loss doesn't decrease at all, the learning rate might be too small
+- If the loss oscillates wildly, the learning rate might be too large
+
+The actor loss is just one metric to monitor during training. It should be considered alongside other metrics like average return, entropy, and standard deviation of returns to get a complete picture of the training progress.
+
+```python
+# Calculate log probabilities of taken actions
+if self.discrete:
+    log_probs = action_dist.log_prob(actions)
+else:
+    log_probs = action_dist.log_prob(actions).sum(dim=-1)
+
+# Compute policy loss as negative mean of (log_probs * advantages)
+loss = -(log_probs * advantages).mean()
+```
+
+---
+
+**User**
+
+How come the loss starts low, then goes high by iteration 30 and then continuously decreases back down to 20?
+
+---
+
+**Cursor**
+
+Let me analyze this behavior by looking at the training logs and the policy gradient implementation.
+
+
+Let me explain why the loss shows this pattern:
+
+1. **Initial Low Loss (Iterations 1-30)**:
+- At the start, the policy is random or close to random
+- The log probabilities of actions are relatively uniform
+- The advantages (returns) are also relatively uniform since the policy hasn't learned to distinguish good from bad actions
+- This leads to a low initial loss because: `loss = -(log_probs * advantages).mean()`
+- When both log_probs and advantages are small, their product is small
+
+2. **High Loss Peak (Around Iteration 30)**:
+- By this point, the policy has started to learn which actions are good
+- The advantages start to show clear differences between good and bad actions
+- The policy starts to assign higher probabilities to good actions
+- This leads to:
+  - Higher log probabilities for good actions
+  - Higher advantages for good actions
+  - Their product becomes larger, leading to a higher loss
+- This is actually a good sign - it means the policy is starting to differentiate between good and bad actions
+
+3. **Decreasing Loss (After Iteration 30)**:
+- As the policy continues to improve:
+  - It becomes more confident in its good actions (higher log probabilities)
+  - The advantages become more refined
+  - The policy learns to avoid bad actions (lower log probabilities)
+  - The product of log probabilities and advantages becomes more balanced
+- The loss decreases as the policy becomes more stable and efficient
+
+4. **Why This Pattern is Normal**:
+- This pattern is common in policy gradient methods because:
+  - The loss is not a direct measure of performance
+  - It's a measure of how much the policy is being pushed to change
+  - High loss can indicate active learning
+  - Low loss can indicate either:
+    - A random policy (early training)
+    - A well-learned policy (late training)
+
+5. **Correlation with Returns**:
+Looking at the `Eval_AverageReturn` values:
+- The returns increase significantly around iteration 10-20
+- They reach 200 (maximum) by iteration 18
+- This shows that the high loss period corresponds to the policy learning to achieve good performance
+- The decreasing loss later corresponds to the policy refining its behavior
+
+6. **Why It's Not a Problem**:
+- The loss pattern doesn't indicate a problem because:
+  - The returns are high and stable
+  - The policy is achieving the maximum possible return (200)
+  - The loss is just a training signal, not a performance metric
+  - The final low loss indicates the policy has converged to a good solution
+
+This pattern is actually a good sign of learning:
+1. Start with random policy (low loss)
+2. Learn to distinguish good from bad actions (high loss)
+3. Refine the policy to be more efficient (decreasing loss)
+4. Converge to a stable solution (low loss)
+
+The key is to focus on the returns rather than the loss - the returns show that the policy is performing well, which is what really matters.
+
+---
+
+**User**
+
+Great thanks. Now, why is there are dip in the rewards at the very end of the iterations (around 90). In the video, it seems the cart reaches the borders of the environment. Is that negatively penalized? If so, why does it or does it not learn how to deal with that?
+
+---
+
+**Cursor**
+
+Let me analyze this behavior by looking at the CartPole environment and the training data.
+
+1. **CartPole Environment Boundaries**:
+- In CartPole-v0, the cart can move left and right
+- The episode terminates if:
+  1. The pole falls over (angle > 12 degrees)
+  2. The cart moves too far from center (position > 2.4 units)
+  3. The episode reaches 200 steps (maximum length)
+
+2. **Looking at the Training Data**:
+From the logs, we can see the returns drop from 200 to around 115 at the end:
+```
+200.0,  # iteration 85
+200.0,  # iteration 86
+200.0,  # iteration 87
+200.0,  # iteration 88
+200.0,  # iteration 89
+151.6666717529297,  # iteration 90
+200.0,  # iteration 91
+136.6666717529297,  # iteration 92
+132.5,  # iteration 93
+118.25,  # iteration 94
+107.5,  # iteration 95
+113.5,  # iteration 96
+114.75,  # iteration 97
+107.25,  # iteration 98
+110.0,  # iteration 99
+112.0,  # iteration 100
+107.75,  # iteration 101
+107.25,  # iteration 102
+113.75,  # iteration 103
+115.25  # iteration 104
+```
+
+3. **Why This Happens**:
+- The policy has learned to balance the pole, but it's not explicitly learning to keep the cart centered
+- The reward function in CartPole only gives +1 for each step the pole stays upright
+- There's no explicit penalty for being near the boundaries
+- The policy is optimizing for maximum steps (maximum reward) without considering cart position
+
+4. **Why It Doesn't Learn to Stay Centered**:
+- The policy gradient algorithm is optimizing for maximum expected return
+- Since there's no explicit reward/penalty for cart position:
+  - The policy doesn't have a signal to learn to stay centered
+  - It only learns to keep the pole upright
+  - It can achieve this by moving the cart back and forth
+- This is a common issue in policy gradient methods where the policy optimizes for the exact reward function given, not for what we might intuitively want
+
+5. **Why It's Not a Problem**:
+- The policy is still achieving its primary goal (keeping the pole upright)
+- The returns are still good (around 110-115 steps)
+- The policy is still stable and consistent
+- The cart hitting boundaries doesn't affect the main objective
+
+6. **How to Fix This**:
+If you wanted the cart to stay centered, you would need to:
+1. Modify the reward function to include a penalty for distance from center
+2. Or use a different environment version (like CartPole-v1) that might have different dynamics
+3. Or implement a custom reward function that encourages centering behavior
+
+7. **Why It's Actually Good**:
+- The policy is doing exactly what it was trained to do
+- It's maximizing the given reward function
+- The behavior is consistent and stable
+- The policy is robust enough to handle boundary conditions
+
+This is a good example of how reinforcement learning algorithms will optimize for exactly what you tell them to optimize for, not what you might intuitively want. The policy is working as designed - it's maximizing the number of steps the pole stays upright, which it can do by moving the cart back and forth near the boundaries. If you wanted different behavior, you would need to modify the reward function to explicitly encourage that behavior.
+
+The dip in rewards at the end is not a failure of learning, but rather a demonstration that the policy has learned to optimize the exact reward function it was given, even if that leads to behavior that might not be what we intuitively expect.
+
+```plaintext
+200.0,  # iteration 85
+200.0,  # iteration 86
+200.0,  # iteration 87
+200.0,  # iteration 88
+200.0,  # iteration 89
+151.6666717529297,  # iteration 90
+200.0,  # iteration 91
+136.6666717529297,  # iteration 92
+132.5,  # iteration 93
+118.25,  # iteration 94
+107.5,  # iteration 95
+113.5,  # iteration 96
+114.75,  # iteration 97
+107.25,  # iteration 98
+110.0,  # iteration 99
+112.0,  # iteration 100
+107.75,  # iteration 101
+107.25,  # iteration 102
+113.75,  # iteration 103
+115.25  # iteration 104
+```
+
+---
+
+**User**
+
+Ok, but why does the reward dip all the sudden in the end?
+
+---
+
+**Cursor**
+
+Let me analyze why the reward suddenly dips at the end. This is an interesting observation that could have several causes:
+
+1. **Policy Instability**:
+- Looking at the returns pattern:
+```
+200.0,  # iteration 85
+200.0,  # iteration 86
+200.0,  # iteration 87
+200.0,  # iteration 88
+200.0,  # iteration 89
+151.6666717529297,  # iteration 90  <- Sudden drop
+200.0,  # iteration 91
+136.6666717529297,  # iteration 92
+132.5,  # iteration 93
+118.25,  # iteration 94
+107.5,  # iteration 95
+113.5,  # iteration 96
+114.75,  # iteration 97
+107.25,  # iteration 98
+110.0,  # iteration 99
+112.0,  # iteration 100
+107.75,  # iteration 101
+107.25,  # iteration 102
+113.75,  # iteration 103
+115.25  # iteration 104
+```
+
+2. **Possible Causes**:
+
+a) **Learning Rate Effects**:
+- The policy might be overshooting due to the fixed learning rate
+- As the policy gets better, the same learning rate might cause larger updates
+- This could lead to the policy "jumping" to a worse region of the parameter space
+
+b) **Exploration vs Exploitation**:
+- The policy might have become too deterministic
+- Without enough exploration, it might get stuck in a local optimum
+- The sudden drop could be the policy discovering a new behavior that's less optimal
+
+c) **Numerical Instability**:
+- The policy might be experiencing numerical issues
+- This could happen if the log probabilities or advantages become too extreme
+- The policy might be making updates that are too large
+
+3. **Why It Stays Low**:
+- Once the policy moves to this new region, it might be in a local optimum
+- The gradient updates might not be strong enough to push it back to the better region
+- The policy might have found a new stable behavior that's less optimal but still viable
+
+4. **Why It's Not Recovering**:
+- The policy gradient method might not have enough exploration to find its way back
+- The learning rate might be too small to make significant changes
+- The policy might be in a region where the gradients are small
+
+5. **Potential Solutions**:
+- Use a learning rate schedule that decreases over time
+- Add entropy regularization to encourage exploration
+- Implement early stopping when performance is good
+- Use a larger batch size to get more stable updates
+- Add gradient clipping to prevent large updates
+
+6. **Why This is Common in Policy Gradient**:
+- Policy gradient methods can be sensitive to parameter updates
+- They don't have built-in mechanisms to prevent performance degradation
+- They can get stuck in local optima
+- The optimization landscape can be non-convex and have multiple stable points
+
+The sudden dip and subsequent stability at a lower performance level is a classic example of policy gradient methods' sensitivity to parameter updates and their tendency to get stuck in local optima. It's not necessarily a failure of the algorithm, but rather a demonstration of its limitations in maintaining optimal performance over long training periods.
+
+To prevent this in future runs, you might want to:
+1. Implement early stopping when performance is good
+2. Use a learning rate schedule
+3. Add entropy regularization
+4. Use a larger batch size
+5. Implement gradient clipping
+
+These modifications could help maintain the high performance achieved earlier in training.
+
+```plaintext
+200.0,  # iteration 85
+200.0,  # iteration 86
+200.0,  # iteration 87
+200.0,  # iteration 88
+200.0,  # iteration 89
+151.6666717529297,  # iteration 90  <- Sudden drop
+200.0,  # iteration 91
+136.6666717529297,  # iteration 92
+132.5,  # iteration 93
+118.25,  # iteration 94
+107.5,  # iteration 95
+113.5,  # iteration 96
+114.75,  # iteration 97
+107.25,  # iteration 98
+110.0,  # iteration 99
+112.0,  # iteration 100
+107.75,  # iteration 101
+107.25,  # iteration 102
+113.75,  # iteration 103
+115.25  # iteration 104
+```
