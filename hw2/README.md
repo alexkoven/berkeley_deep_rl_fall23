@@ -738,3 +738,145 @@ These modifications could help maintain the high performance achieved earlier in
 113.75,  # iteration 103
 115.25  # iteration 104
 ```
+
+## More on Actor Loss
+
+In reinforcement learning (RL), particularly in actor-critic methods, the **actor loss curve** exhibits characteristic patterns due to the stochastic nature of the environment, the optimization landscape, and the interaction between the actor and the critic. Understanding the shape and behavior of this curve requires a detailed understanding of what actor loss is and how it is optimized.
+
+### Actor Loss Definition
+
+In an actor-critic setup, the **actor** is a policy $\pi_\theta(a|s)$, parameterized by $\theta$, that maps states to action distributions. The **actor loss** is typically formulated as:
+
+$$
+\mathcal{L}_{\text{actor}}(\theta) = -\mathbb{E}_{s \sim \mathcal{D}, a \sim \pi_\theta} \left[ \hat{A}^{\pi}(s, a) \log \pi_\theta(a|s) \right]
+$$
+
+Here, $\hat{A}^{\pi}(s, a)$ is the **advantage estimate**, which measures how good action $a$ is compared to the average action at state $s$. This loss encourages the policy to increase the probability of actions with positive advantage and decrease it for negative ones.
+
+In practice, implementations may vary. For instance, **PPO (Proximal Policy Optimization)** uses a clipped surrogate objective, which modifies this loss to ensure stable updates.
+
+### Typical Shape of the Actor Loss Curve
+
+Empirically, the **actor loss curve over training episodes** often exhibits the following pattern:
+
+1. **Initial Increase**: At the beginning of training, the actor loss usually **increases**. This might seem counterintuitive but arises because the critic’s estimate of the advantage function is initially inaccurate. The actor, taking large policy steps based on noisy gradients, may increase the loss even as performance improves.
+
+2. **High Variance Region**: The curve becomes **noisy** and fluctuates due to:
+   - Stochasticity in policy sampling.
+   - High variance in advantage estimates.
+   - Imperfect critic approximations.
+   Despite these fluctuations, the **policy performance (e.g., reward)** may still be improving.
+
+3. **Gradual Decrease or Plateau**: As the policy improves and the critic stabilizes, the advantage estimates become more accurate. The actor starts making finer updates. Consequently, the loss begins to **stabilize** or **gradually decrease**. This phase corresponds to **policy refinement**.
+
+4. **Convergence or Divergence**:
+   - If learning converges successfully, the actor loss flattens and shows low variance.
+   - If the policy overfits or the learning rate is high, the curve might **diverge** again due to **policy collapse** or **destabilization** of the critic.
+
+### Why the Curve Behaves This Way
+
+The behavior arises due to the nature of **policy gradient optimization**:
+
+#### 1. Non-stationarity
+
+The target (advantage estimate) is changing throughout training, so the loss surface itself is non-stationary.
+
+#### 2. High variance gradient estimation
+
+Policy gradient methods estimate gradients via Monte Carlo sampling, leading to noisy updates:
+
+$$
+\nabla_\theta \mathcal{L}_{\text{actor}}(\theta) = - \mathbb{E} \left[ \hat{A}(s,a) \nabla_\theta \log \pi_\theta(a|s) \right]
+$$
+
+Even if the policy improves, the log-probabilities can vary significantly, affecting the sign and magnitude of the loss.
+
+#### 3. Clipping in PPO
+
+In PPO, the clipped objective constrains the update:
+
+$$
+\mathcal{L}_{\text{PPO}}(\theta) = \mathbb{E} \left[ \min\left(r(\theta) \hat{A}, \text{clip}(r(\theta), 1 - \epsilon, 1 + \epsilon) \hat{A} \right) \right]
+$$
+
+This leads to oscillations in loss, especially if advantage estimates straddle zero. Clipping also means the loss doesn't necessarily correlate monotonically with policy performance.
+
+#### 4. Critic's Influence
+
+If the critic provides poor estimates (e.g., wrong sign on advantages), the actor is misdirected, temporarily increasing loss or degrading performance.
+
+### Conclusion
+
+The actor loss curve is **noisy, non-monotonic**, and often **not a good proxy** for policy performance. It typically rises early in training, oscillates with high variance, and may flatten or drop as learning stabilizes. This reflects the complex interplay between stochastic sampling, non-stationary targets, and the inherent variance of policy gradient methods.
+
+Monitoring **reward curves** and **KL divergence** between old and new policies is often more informative than observing actor loss alone.
+
+---
+
+### Why Improved Policy Does Not Necessarily Reduce Actor Loss
+
+This is a subtle and crucial point in reinforcement learning: **an improved policy does not necessarily imply a decrease in actor loss**. The reason lies in the *nature of the actor loss function* and how it interacts with the **policy gradient formulation**, particularly in stochastic settings.
+
+Let’s unpack this in depth.
+
+#### 1. Actor Loss is Not a True Objective Function
+
+In supervised learning, the loss function (e.g., MSE or cross-entropy) is directly minimized to improve predictive accuracy. However, in **policy gradient RL**, the "loss" is a *proxy for a directional update*. The actor loss is designed such that:
+
+$$
+\nabla_\theta \mathcal{L}_{\text{actor}}(\theta) \propto -\mathbb{E} \left[ \hat{A}(s, a) \nabla_\theta \log \pi_\theta(a|s) \right]
+$$
+
+This means we are *maximizing expected return* by ascending the gradient, but the scalar value of the loss itself (i.e., $\mathcal{L}_{\text{actor}}(\theta)$) has **no intrinsic meaning as a performance metric**. Its numerical value is affected by advantage magnitudes, policy entropy, and sampling variability.
+
+#### 2. Improved Policy May Have Zero or Near-Zero Advantage
+
+As training proceeds and the policy converges toward optimal behavior, the estimated advantage $\hat{A}(s, a) \approx 0$ for most actions, because:
+
+$$
+\hat{A}(s, a) = Q(s, a) - V(s)
+$$
+
+If the policy becomes nearly deterministic and well-matched to the critic’s value estimates, then $Q(s,a) \approx V(s)$. As a result, the gradient signal $\hat{A}(s,a) \log \pi_\theta(a|s)$ goes to zero, and so does the actor loss—even without any further policy improvement.
+
+But here's the twist: the actor loss can also **remain high or oscillate**, even with a good policy, depending on how **policy entropy** and **advantage magnitudes** behave.
+
+#### 3. High Actor Loss Can Persist With a Good Policy
+
+Let’s consider an illustrative example.
+
+Suppose the policy has improved substantially—it now consistently selects near-optimal actions. But if the advantage estimates $\hat{A}(s,a)$ have high magnitude (perhaps due to large returns or poor value normalization), and the log-probabilities $\log \pi_\theta(a|s)$ are small (due to high entropy or stochasticity), then:
+
+$$
+\mathcal{L}_{\text{actor}}(\theta) = - \mathbb{E}[ \hat{A}(s,a) \log \pi_\theta(a|s) ]
+$$
+
+can still yield a **large negative value**, i.e., a large positive loss.
+
+Thus, high loss does not mean the policy is poor. It just means the **update direction has high magnitude**.
+
+#### 4. Clipped Surrogate Loss in PPO Obfuscates the Meaning of the Loss Value
+
+In PPO, the actor loss is defined as:
+
+$$
+\mathcal{L}_{\text{PPO}}(\theta) = -\mathbb{E} \left[ \min\left(r(\theta) \hat{A}, \text{clip}(r(\theta), 1 - \epsilon, 1 + \epsilon) \hat{A} \right) \right]
+$$
+
+Here $r(\theta) = \frac{\pi_\theta(a|s)}{\pi_{\theta_{\text{old}}}(a|s)}$. The clipping restricts the update magnitude to prevent divergence. As the policy improves and the updates become conservative (e.g., KL divergence < threshold), the clipped loss becomes **constant**, regardless of how optimal the policy is. Again, this means loss value **does not track policy quality**.
+
+#### 5. Entropy Regularization and Exploration Terms Add Noise
+
+If entropy regularization is used (common in actor-critic methods like A3C, SAC), then the actor loss also includes a term like:
+
+$$
+\mathcal{L}_{\text{actor}}(\theta) = -\mathbb{E} \left[ \hat{A}(s,a) \log \pi_\theta(a|s) + \beta \mathcal{H}[\pi_\theta(\cdot|s)] \right]
+$$
+
+This entropy term encourages exploration and can **increase the loss** even as the policy improves. As entropy decays (in entropy-annealing schedules), the actor loss may decrease, but this is due to **reduced exploration**, not better performance.
+
+### Conclusion
+
+An improved policy leads to better reward and often more stable behavior—but **not necessarily to lower actor loss**. This is because the actor loss is not a performance measure but a stochastic estimate of the gradient signal guiding policy improvement. It depends on fluctuating advantage estimates, policy entropy, and implementation details (e.g., clipping in PPO).
+
+In short: **the actor loss is a tool for optimization, not a scorecard**.

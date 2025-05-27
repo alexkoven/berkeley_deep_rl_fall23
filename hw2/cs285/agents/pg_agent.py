@@ -155,7 +155,13 @@ class PGAgent(nn.Module):
 
         # TODO: normalize the advantages to have a mean of zero and a standard deviation of one within the batch
         if self.normalize_advantages:
-            pass
+            # Calculate mean and standard deviation
+            mean_advantage = np.mean(advantages)
+            std_advantage = np.std(advantages)
+            # Avoid division by zero by adding a small epsilon
+            std_advantage = std_advantage + 1e-8
+            # Normalize advantages
+            advantages = (advantages - mean_advantage) / std_advantage
 
         return advantages
 
