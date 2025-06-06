@@ -1,5 +1,19 @@
 ## Results
-To be added.
+
+Cartpole experiment with vanilla PG, PG with reward-to-go, and PG with advantage normalization.
+
+Training with larger batch (4000 vs 1000) improves training significantly.
+
+![Vanilla PG](graphs/pg_vanilla.png)
+
+Adding reward-to-go with small batch does almost as good as vanilla PG with large batch.
+
+![RTG PG](graphs/pg_vanille_w_rtg.png)
+
+Adding large batch to reward-to-go leads to best results. Advantage normalization does not seem to make big difference (should get tested by itself though).
+
+![RTG PG](graphs/rtg_lb_na.png)
+
 
 ## Call Stack for Policy Gradient Training
 
@@ -266,9 +280,9 @@ Yes, that's correct! In the current implementation, each episode runs independen
 - Starts a new episode
 
 
-## Explanation of Actor Loss
+## Raw Chat about Actor Loss
 
-Can you analyze the @q2_pg_cartpole_lb_no_rtg_no_na_CartPole-v0_26-05-2025_11-45-02  folder's in@hw2 data (json) and explain what the different metrics show and what their ideal curve should look like? For example, for a loss should it be monotonically increasing, etc. 
+Can you analyze the @q2_pg_cartpole_lb_no_rtg_no_na_CartPole-v0_26-05-2025_11-45-02  folder's in@hw2 data (json) and explain what the different metrics show and what their ideal curve should look like? For example, for a loss should it be monotonically decreasing, etc. 
 
 ---
 
