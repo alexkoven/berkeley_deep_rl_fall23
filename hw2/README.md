@@ -2,17 +2,19 @@
 
 Cartpole experiment with vanilla PG, PG with reward-to-go, and PG with advantage normalization.
 
+![Vanilla PG](visualizations/cartpole.gif)
+
 Training with larger batch (4000 vs 1000) improves training significantly.
 
-![Vanilla PG](graphs/pg_vanilla.png)
+![Vanilla PG](visualizations/pg_vanilla.png)
 
 Adding reward-to-go with small batch does almost as good as vanilla PG with large batch.
 
-![RTG PG](graphs/pg_vanille_w_rtg.png)
+![RTG PG](visualizations/pg_vanilla_w_rtg.png)
 
 Adding large batch to reward-to-go leads to best results. Advantage normalization does not seem to make big difference (should get tested by itself though).
 
-![RTG PG](graphs/rtg_lb_na.png)
+![RTG PG](visualizations/rtg_lb_na.png)
 
 
 ## Call Stack for Policy Gradient Training
