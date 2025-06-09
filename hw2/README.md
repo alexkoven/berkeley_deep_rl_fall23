@@ -896,3 +896,36 @@ This entropy term encourages exploration and can **increase the loss** even as t
 An improved policy leads to better reward and often more stable behavior—but **not necessarily to lower actor loss**. This is because the actor loss is not a performance measure but a stochastic estimate of the gradient signal guiding policy improvement. It depends on fluctuating advantage estimates, policy entropy, and implementation details (e.g., clipping in PPO).
 
 In short: **the actor loss is a tool for optimization, not a scorecard**.
+
+## Different Way to Estimate Q-Values (Here we use Monte Carlo and GAE)
+
+Let me explain the different ways we could estimate the expected return (Q-values) in reinforcement learning:
+
+1. **Monte Carlo (MC) Estimates** (what we're currently using):
+   - Uses actual returns from complete episodes
+   - High variance but unbiased
+   - In our code, this is implemented as either:
+     - Full trajectory returns: sum of all rewards in episode
+     - Reward-to-go: sum of future rewards from current timestep
+
+2. **Temporal Difference (TD) Estimates**:
+   - Uses bootstrapping: estimates future returns using value function
+   - Lower variance but biased
+   - Formula: Q(s,a) ≈ r + γV(s')
+   - Example: Q-learning, SARSA
+
+3. **n-step Returns**:
+   - Combines MC and TD
+   - Uses n actual rewards + bootstrapped estimate
+   - Formula: Q(s,a) ≈ r₁ + γr₂ + ... + γⁿ⁻¹rₙ + γⁿV(sₙ)
+   - Example: n-step Q-learning
+
+4. **Generalized Advantage Estimation (GAE)**:
+   - Weighted average of n-step returns
+   - Balances bias and variance using λ parameter
+   - We'll implement this later in the homework (Experiment 3)
+
+The key tradeoff is between:
+- Bias: How far our estimate is from true expected return
+- Variance: How much our estimates fluctuate
+

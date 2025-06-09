@@ -6,13 +6,13 @@
 - [x] Implement **return estimators**:
   - [x] **Case 1:** Full-trajectory discounted returns 
   - [x] **Case 2:** Reward-to-go discounted returns
-- [ ] Skip baseline code sections for now
+- [x] Skip baseline code sections for now
 
 #### 2. `estimate_advantage` (in `pg_agent.py`)
 - [x] Complete the `estimate_advantage` method:
   - [x] Implement vanilla advantage = reward-to-go
-  - [ ] Later: subtract NN baseline
-  - [ ] Later: implement GAE
+  - [ ] Implement Basic NN baseline
+  - [ ] Implement GAE
 
 #### 3. `MLPPolicyPG:update` method
 - [ ] Finish the `update` method for:
@@ -24,21 +24,18 @@
 ### II Experiments and Deliverables
 
 #### Experiment 1: CartPole (Discrete)
-- [ ] Run 8 combinations (small + large batch; with/without reward-to-go; with/without advantage normalization):
+- [x] Run 8 combinations (small + large batch; with/without reward-to-go; with/without advantage normalization):
   bash
   python cs285/scripts/run_hw2.py --env_name CartPole-v0 -n 100 -b <1000|4000> [-rtg] [-na] --exp_name <name>
 `
 
-- [ ] Plot learning curves:
+- [x] Plot learning curves:
+  - [x] Small batch configs (prefix: `cartpole`)
+  - [x] Large batch configs (prefix: `cartpole_lb`)
 
-  - [ ] Small batch configs (prefix: `cartpole`)
-  - [ ] Large batch configs (prefix: `cartpole_lb`)
-- [ ] Answer:
-
-  - [ ] Which value estimator performs better without normalization?
-  - [ ] Does advantage normalization help?
-  - [ ] Impact of batch size?
-- [ ] Include all command-line configs used
+- [x] Which value estimator performs better without normalization?
+- [x] Does advantage normalization help?
+- [x] Impact of batch size?
 
 ---
 
