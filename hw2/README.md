@@ -929,3 +929,52 @@ The key tradeoff is between:
 - Bias: How far our estimate is from true expected return
 - Variance: How much our estimates fluctuate
 
+## Difference between Actor NN and Critic NN
+
+Let me explain the typical architecture differences between policy (actor) and value (critic) networks in industry:
+
+1. **Architectural Complexity**:
+   - **Policy Networks** are typically more complex because they need to:
+     - Output action distributions (continuous or discrete)
+     - Handle different action spaces (continuous, discrete, or mixed)
+     - Often include additional layers for action constraints
+     - May need to output both mean and standard deviation for continuous actions
+     - Sometimes include action clipping or tanh transformations
+
+   - **Value Networks** are simpler because they:
+     - Only need to output a single scalar value
+     - Don't need to handle different action spaces
+     - Don't need distribution parameters
+     - Often use simpler architectures with fewer layers
+
+2. **Industry Best Practices**:
+   - **Shared Architecture**: In many modern implementations (like PPO, SAC), the policy and value networks often share the same base architecture (number of layers, layer sizes) for simplicity and consistency
+   - **Separate Networks**: However, they are typically implemented as separate networks because:
+     - They serve different purposes (action selection vs value estimation)
+     - They may need different learning rates
+     - They can be updated independently
+     - It's easier to debug and maintain
+
+3. **Common Patterns**:
+   - Both networks often use the same:
+     - Activation functions (ReLU, tanh)
+     - Initialization schemes
+     - Normalization techniques
+   - But value networks might:
+     - Use smaller learning rates
+     - Have fewer layers
+     - Use simpler loss functions (MSE vs policy gradient)
+
+4. **Recent Trends**:
+   - Modern implementations often use similar architectures for both networks
+   - The main difference is in the output layer and loss function
+   - Some implementations use shared feature extractors with separate heads
+   - Value networks might use target networks for stability
+
+In our case, the critic is indeed simpler because:
+1. It only needs to predict a single value (V(s))
+2. It doesn't need to handle action distributions
+3. It uses a straightforward MSE loss
+4. It doesn't need to handle different action spaces
+
+Would you like me to explain any of these aspects in more detail? Or would you like to proceed with implementing the critic's `forward` method?

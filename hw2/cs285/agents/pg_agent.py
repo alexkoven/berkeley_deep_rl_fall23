@@ -92,8 +92,10 @@ class PGAgent(nn.Module):
 
         # step 4: if needed, use all datapoints (s_t, a_t, q_t) to update the PG critic/baseline
         if self.critic is not None:
-            # TODO: perform `self.baseline_gradient_steps` updates to the critic/baseline network
-            critic_info: dict = None
+            # Perform multiple gradient steps on the critic
+            critic_info = {}
+            for _ in range(self.baseline_gradient_steps):
+                critic_info = self.critic.update(obs, q_values)
 
             info.update(critic_info)
 
@@ -129,13 +131,13 @@ class PGAgent(nn.Module):
             # If no baseline, advantages are just the Q-values (reward-to-go)
             advantages = q_values
         else:
-            # TODO: run the critic and use it as a baseline
-            values = None
+            # Get value predictions from critic
+            values = ptu.to_numpy(self.critic(ptu.from_numpy(obs)))
             assert values.shape == q_values.shape
 
             if self.gae_lambda is None:
-                # TODO: if using a baseline, but not GAE, what are the advantages?
-                advantages = None
+                # If using a baseline but not GAE, advantages are Q-values minus value predictions
+                advantages = q_values - values
             else:
                 # TODO: implement GAE
                 batch_size = obs.shape[0]
